@@ -1,4 +1,4 @@
-CREATE TABLE {{ .database }}.tickers (
+CREATE TABLE {{ .database }}.{{ .table }} (
   ts                             Date32,
   ticker                         LowCardinality(String),
   name                           LowCardinality(String),

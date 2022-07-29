@@ -1,0 +1,26 @@
+CREATE TABLE {{ .database }}.{{ .table }} (
+	ts     DateTime('America/New_York'),
+	{{ .aggFields }}
+)
+ENGINE = AggregatingMergeTree
+PARTITION BY toYYYYMMDD(ts)
+ORDER BY (ticker, ts);
+
+CREATE MATERIALIZED VIEW {{ .database }}.{{ .table }}_agger
+TO {{ .database }}.{{ .table }}
+AS
+SELECT
+	ticker,
+	toStartOfMinute(ts) AS ts,
+	any(price) AS open,
+	max(price) AS high,
+	min(price) AS low,
+	anyLast(price) AS close,
+	sumIf(size, update_volume) AS volume,
+	sumIf(price * size, update_volume) / volume AS vwap,
+	count() AS count
+FROM {{ .database }}.trades
+WHERE correction = 0 AND not hasAny(conditions, [12]) AND update
+GROUP BY
+	ticker,
+	ts;

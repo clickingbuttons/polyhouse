@@ -1,4 +1,4 @@
-CREATE TABLE {{ .database }}.trades (
+CREATE TABLE {{ .database }}.{{ .table }} (
 	seqnum								UInt64,
 	tape             			Enum8('A-NYSE', 'B-ARCA', 'C-NASD'),
 	id               			UInt64,

@@ -107,9 +107,6 @@ const (
 
 func (e *SchemaCmd) createTable(table string) error {
 	e.logger.Info("creating ", table)
-	if strings.HasPrefix(table, "agg") {
-		table = "agg"
-	}
 	template := e.templates.Lookup(table)
 	if template == nil {
 		msg := fmt.Sprintf("%s template is empty", table)
@@ -136,30 +133,11 @@ func (e *SchemaCmd) createTable(table string) error {
 
 func (e *SchemaCmd) maybeCreateTable(table string) error {
 	if slices.Contains(e.viper.GetStringSlice("tables"), table) {
-		e.setFields(table)
+		e.fields["table"] = table
 		return e.createTable(table)
 	}
 
 	return nil
-}
-
-func (e *SchemaCmd) setFields(table string) {
-	switch table {
-	case "agg1m":
-		e.fields["aggName"] = "agg1m"
-		e.fields["tsType"] = "DateTime('America/New_York')"
-		e.fields["partitionFn"] = "toYYYYMMDD"
-		e.fields["interval"] = "1 minute"
-		e.fields["volWhere"] = "update_volume"
-		e.fields["where"] = "update"
-	case "agg1d":
-		e.fields["aggName"] = "agg1d"
-		e.fields["tsType"] = "Date32"
-		e.fields["partitionFn"] = "toYear"
-		e.fields["interval"] = "1 day"
-		e.fields["volWhere"] = "update_volume"
-		e.fields["where"] = "not hasAny(conditions, [12]) AND update"
-	}
 }
 
 func (e *SchemaCmd) runE(cmd *cobra.Command, args []string) error {
@@ -207,6 +185,10 @@ func (e *SchemaCmd) runE(cmd *cobra.Command, args []string) error {
 	}
 
 	if err = e.maybeCreateTable("agg1d"); err != nil {
+		return err
+	}
+
+	if err = e.maybeCreateTable("agg1d_intra"); err != nil {
 		return err
 	}
 
