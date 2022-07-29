@@ -30,6 +30,7 @@ func main() {
 		PersistentPreRunE: cmd.persistentPreRun,
 		RunE: cmd.runE,
 	}
+	rootCmd.PersistentFlags().String("templates", "./templates/*", "glob for schema templates")
 	rootCmd.PersistentFlags().String("address", "127.0.0.1:9000", "clickhouse address")
 	rootCmd.PersistentFlags().String("username", "default", "for clickhouse auth")
 	rootCmd.PersistentFlags().String("password", "", "for clickhouse auth")
