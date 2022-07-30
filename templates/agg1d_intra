@@ -1,6 +1,6 @@
 CREATE TABLE {{ .database }}.{{ .table }} (
-	ts     Date32,
-	{{ .aggFields }}
+  ts     Date32,
+  {{ .aggFields }}
 )
 ENGINE = AggregatingMergeTree
 PARTITION BY toYear(ts)
@@ -10,16 +10,16 @@ CREATE MATERIALIZED VIEW {{ .database }}.{{ .table }}_agger
 TO {{ .database }}.{{ .table }}
 AS
 SELECT
-	ticker,
-	toDate32(toStartOfDay(ts)) AS ts,
-	any(a.open) AS open,
-	max(a.high) AS high,
-	min(a.low) AS low,
-	anyLast(a.close) AS close,
-	sum(a.volume) AS volume,
-	sum(a.vwap * a.volume) / sum(a.volume) AS vwap,
-	sum(a.count) AS count
+  ticker,
+  toDate32(toStartOfDay(ts)) AS ts,
+  any(a.open) AS open,
+  max(a.high) AS high,
+  min(a.low) AS low,
+  anyLast(a.close) AS close,
+  sum(a.volume) AS volume,
+  sum(a.vwap * a.volume) / sum(a.volume) AS vwap,
+  sum(a.count) AS count
 FROM {{ .database }}.agg1m AS a
 GROUP BY
-	ticker,
-	ts;
+  ticker,
+  ts;

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/polygon-io/client-go/rest/models"
+	"golang.org/x/exp/slices"
 )
 
 var tickerCount uint64
@@ -18,7 +19,10 @@ func (e *IngestCmd) download_and_flush_tickers(ticker string, date time.Time) {
 	}.WithDate(models.Date(date))
 	details, err := e.polygon.GetTickerDetails(e.ctx, params)
 	if err != nil {
-		errDetails := err.(*models.ErrorResponse)
+		errDetails, ok := err.(*models.ErrorResponse)
+		if !ok {
+			panic(err)
+		}
 		if errDetails.StatusCode == 404 {
 			e.logger.Warn(date.Format(dateFormat), " missing ticker details for ", ticker)
 		} else {
@@ -81,7 +85,37 @@ func (e *IngestCmd) worker_tickers(c chan string, wg *sync.WaitGroup, date time.
 	wg.Done()
 }
 
+func (e *IngestCmd) get_existing_tickers(date time.Time) ([]string, error) {
+	res := []string{}
+
+	cmd := fmt.Sprintf("SELECT ticker from %s.tickers where ts='%s'", e.viper.GetString("database"), date.Format(dateFormat))
+	rows, err := e.db.Query(e.ctx, cmd)
+	if err != nil {
+		return res, err
+	}
+	for rows.Next() {
+		var ticker string
+		if err := rows.Scan(&ticker); err != nil {
+			return res, nil
+		}
+		res = append(res, ticker)
+	}
+
+	return res, nil
+}
+
 func (e *IngestCmd) download_day_tickers(date time.Time, tickers []string) error {
+	toDownload := []string{}
+	alreadyDownloaded, err := e.get_existing_tickers(date)
+	if err != nil {
+		return err
+	}
+	for _, t := range tickers {
+		if !slices.Contains(alreadyDownloaded, t) {
+			toDownload = append(toDownload, t)
+		}
+	}
+
 	ticker_chan := make(chan string)
 	wg := &sync.WaitGroup{}
 
@@ -90,7 +124,7 @@ func (e *IngestCmd) download_day_tickers(date time.Time, tickers []string) error
 		go e.worker_tickers(ticker_chan, wg, date)
 	}
 
-	for _, ticker := range tickers {
+	for _, ticker := range toDownload {
 		ticker_chan <- ticker
 	}
 	close(ticker_chan)
