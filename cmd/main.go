@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"github.com/clickingbuttons/polyhouse/cmd/schema"
+	"github.com/clickingbuttons/polyhouse/cmd/ingest"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/sirupsen/logrus"
@@ -24,6 +25,11 @@ func main() {
 		logrus.WithError(err).Fatal("error during init for schema command")
 	}
 
+	ingestCmd, err := ingest.NewIngest(cmd.logger)
+	if err != nil {
+		logrus.WithError(err).Fatal("error during init for schema command")
+	}
+
 	rootCmd := &cobra.Command{
 		Use: "polyhouse",
 		Short: "polyhouse creates schema for Polygon data and optionally ingests from public APIs",
@@ -31,14 +37,16 @@ func main() {
 		RunE: cmd.runE,
 	}
 	rootCmd.PersistentFlags().String("templates", "./templates/*", "glob for schema templates")
+	rootCmd.PersistentFlags().String("database", "us_equities", "name of database")
 	rootCmd.PersistentFlags().String("address", "127.0.0.1:9000", "clickhouse address")
 	rootCmd.PersistentFlags().String("username", "default", "for clickhouse auth")
 	rootCmd.PersistentFlags().String("password", "", "for clickhouse auth")
-	rootCmd.PersistentFlags().Int("max-open-conns", 99, "clickhouse max open connections")
+	rootCmd.PersistentFlags().Int("max-open-conns", 90, "clickhouse max open connections")
 	rootCmd.PersistentFlags().Int("max-idle-conns", 5, "clickhouse max open connections")
 	rootCmd.PersistentFlags().Bool("verbose", false, "log moar")
 	rootCmd.PersistentFlags().String("cluster", "", "clickhouse cluster to make tables on")
 	rootCmd.AddCommand(schemaCmd)
+	rootCmd.AddCommand(ingestCmd)
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)

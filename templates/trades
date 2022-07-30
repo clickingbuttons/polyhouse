@@ -1,6 +1,6 @@
 CREATE TABLE {{ .database }}.{{ .table }} (
 	seqnum								UInt64,
-	tape             			Enum8('A-NYSE', 'B-ARCA', 'C-NASD'),
+	tape             			Enum8({{ .tapes }}),
 	id               			UInt64,
 	ticker           			LowCardinality(String),
 	ts               			Datetime64(9, 'America/New_York'),

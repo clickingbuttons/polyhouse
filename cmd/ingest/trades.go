@@ -1,4 +1,4 @@
-package main
+package ingest
 
 import (
 	"strconv"
@@ -6,15 +6,11 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
-	"os"
 	"sync"
 	"time"
 
-	polygon "github.com/polygon-io/client-go/rest"
+	"github.com/clickingbuttons/polyhouse/lib"
 	"github.com/polygon-io/client-go/rest/models"
-
-	"github.com/ClickHouse/clickhouse-go/v2"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 )
 
 var tradeCount uint64
@@ -53,13 +49,14 @@ func parse_time(t time.Time) *time.Time {
 	return &t
 }
 
-func download_and_flush_trades(ticker string, date time.Time, client *polygon.Client, conn driver.Conn) {
+func (e *IngestCmd) download_and_flush_trades(ticker string, date time.Time) {
 	ctx := context.Background()
 	params := models.ListTradesParams{
 		Ticker: ticker,
 	}.WithLimit(50000).WithOrder(models.Asc).WithDay(date.Year(), date.Month(), date.Day())
-	trades := client.ListTrades(ctx, params)
-	batch, err := conn.PrepareBatch(ctx, "INSERT INTO us_equities.trades")
+	trades := e.polygon.ListTrades(ctx, params)
+	sql := fmt.Sprintf("INSERT INTO %s.trades", e.viper.GetString("database"))
+	batch, err := e.db.PrepareBatch(ctx, sql)
 	if err != nil {
 		panic(err)
 	}
@@ -67,7 +64,7 @@ func download_and_flush_trades(ticker string, date time.Time, client *polygon.Cl
 		t := trades.Item()
 		err := batch.Append(
 			uint64(t.SequenceNumber),
-			uint8(t.Tape),
+			e.tapes[int(t.Tape)],
 			id_to_u64(t.ID),
 			ticker,
 			time.Time(t.SipTimestamp),
@@ -77,8 +74,8 @@ func download_and_flush_trades(ticker string, date time.Time, client *polygon.Cl
 			uint32(t.Size),
 			convert_to_u8(t.Conditions),
 			uint8(t.Correction),
-			uint8(t.Exchange),
-			uint8(t.TrfID),
+			e.participants[int(t.Exchange)],
+			e.participants[int(t.TrfID)],
 		)
 		if err != nil {
 			panic(err)
@@ -94,14 +91,14 @@ func download_and_flush_trades(ticker string, date time.Time, client *polygon.Cl
 	}
 }
 
-func worker(c chan string, wg *sync.WaitGroup, client *polygon.Client, date time.Time, conn driver.Conn) {
+func (e *IngestCmd) worker(c chan string, wg *sync.WaitGroup, date time.Time) {
 	for ticker := range c {
-		download_and_flush_trades(ticker, date, client, conn)
+		e.download_and_flush_trades(ticker, date)
 	}
 	wg.Done()
 }
 
-func download_day(client *polygon.Client, conn driver.Conn, date time.Time) {
+func (e *IngestCmd) download_day(date time.Time) error {
 	ticker_chan := make(chan string)
 	wg := &sync.WaitGroup{}
 
@@ -110,17 +107,17 @@ func download_day(client *polygon.Client, conn driver.Conn, date time.Time) {
 		MarketType: models.MarketType("stocks"),
 		Date: models.Date(date),
 	}.WithAdjusted(false)
-	tickers, err := client.AggsClient.GetGroupedDailyAggs(context.Background(), params)
+	tickers, err := e.polygon.AggsClient.GetGroupedDailyAggs(context.Background(), params)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	if tickers.ResultsCount == 0 {
 		fmt.Printf("%s no data\n", date.Format("2006-01-02"))
-		return
+		return nil
 	}
-	for i := 0; i < 150; i++ {
+	for i := 0; i < 1; i++ {
 		wg.Add(1)
-		go worker(ticker_chan, wg, client, date, conn)
+		go e.worker(ticker_chan, wg, date)
 	}
 
 	for _, ticker := range tickers.Results {
@@ -128,38 +125,41 @@ func download_day(client *polygon.Client, conn driver.Conn, date time.Time) {
 	}
 	close(ticker_chan)
 	wg.Wait()
+
+	return nil
 }
 
 func Date(year, month, day int) time.Time {
 	return time.Date(year, time.Month(month), day, 0, 0, 0, 0, time.UTC)
 }
 
-func main() {
-	client := polygon.New(os.Getenv("POLY_API_KEY"))
-	click, err := clickhouse.Open(&clickhouse.Options{
-		Addr: []string{"127.0.0.1:9000"},
-		Auth: clickhouse.Auth{
-			Database: "default",
-			Username: "default",
-			Password: "",
-		},
-		DialTimeout:  10 * time.Second,
-		MaxOpenConns: 99,
-		MaxIdleConns: 5,
-		// Debug: true,
-	})
+func (e *IngestCmd) ingestTrades() error {
+	e.tapes = map[int]string{}
+	for key, val := range lib.Tapes {
+		e.tapes[val] = key
+	}
+	e.participants = map[int]string{}
+	for key, val := range lib.Participants {
+		e.participants[val] = key
+	}
+	from, err := time.Parse(dateFormat, e.viper.GetString("from"))
 	if err != nil {
-		panic(err)
+		return err
+	}
+	to, err := time.Parse(dateFormat, e.viper.GetString("to"))
+	if err != nil {
+		return err
 	}
 
-	start := Date(2004, 1, 1)
-	end := time.Now().AddDate(0, 0, -2)
-
-	for d := end; d.Before(start) == false; d = d.AddDate(0, 0, -1) {
+	for d := to; d.Before(from) == false; d = d.AddDate(0, 0, -1) {
 		tradeCount = 0
 		begin := time.Now()
-		download_day(client, click, time.Time(d))
+		if err := e.download_day(time.Time(d)); err != nil {
+			return err
+		}
 		elapsed := time.Since(begin)
 		fmt.Printf("%s %d trades took %s\n", d.Format("2006-01-02"), tradeCount, elapsed)
 	}
+
+	return nil
 }

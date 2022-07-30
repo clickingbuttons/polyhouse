@@ -32,12 +32,11 @@ func NewSchema(logger *logrus.Entry) (*cobra.Command, error) {
 
 	cmd := &cobra.Command{
 		Use:               "schema",
-		Short:             "Creates Polygon schemas",
+		Short:             "Creates Clickhouse schemas for Polygon data",
 		PersistentPreRunE: schema.persistentPreRun,
 		RunE: schema.runE,
 	}
 
-	cmd.Flags().String("database", "us_equities", "name of database to create")
 	cmd.Flags().StringArray("tables", []string{
 		"tickers",
 		"trades",
@@ -69,30 +68,6 @@ vwap   Float64,
 count  UInt32
 `
 
-var participants = map[string]int {
-	"NYSE American, LLC": 1,
-	"Nasdaq OMX BX, Inc.": 2,
-	"NYSE National, Inc.": 3,
-	"FINRA Alternative Display Facility": 4,
-	"Unlisted Trading Privileges": 5,
-	"International Securities Exchange, LLC - Stocks": 6,
-	"Cboe EDGA": 7,
-	"Cboe EDGX": 8,
-	"NYSE Chicago, Inc.": 9,
-	"New York Stock Exchange": 10,
-	"NYSE Arca, Inc.": 11,
-	"Nasdaq": 12,
-	"Consolidated Tape Association": 13,
-	"Long-Term Stock Exchange": 14,
-	"Investors Exchange": 15,
-	"Cboe Stock Exchange": 16,
-	"Nasdaq Philadelphia Exchange LLC": 17,
-	"Cboe BYX": 18,
-	"Cboe BZX": 19,
-	"MIAX Pearl": 20,
-	"Members Exchange": 21,
-	"OTC Equity Security": 62,
-}
 const (
 	// from looking at TAQ + UTP + CTA
 	// page 17 https://www.nyse.com/publicdocs/nyse/data/Daily_TAQ_Client_Spec_v3.0.pdf
@@ -151,8 +126,13 @@ func (e *SchemaCmd) runE(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	tapeLines := []string{}
+	for key, val := range lib.Tapes {
+		line := fmt.Sprintf("'%s' = %d", key, val)
+		tapeLines = append(tapeLines, line)
+	}
 	participantsLines := []string{}
-	for key, val := range participants {
+	for key, val := range lib.Participants {
 		line := fmt.Sprintf("'%s' = %d", key, val)
 		participantsLines = append(participantsLines, line)
 	}
@@ -160,6 +140,7 @@ func (e *SchemaCmd) runE(cmd *cobra.Command, args []string) error {
 		"database": e.viper.GetString("database"),
 		"cluster": e.viper.GetString("cluster"),
 		"participants": strings.Join(participantsLines, ","),
+		"tapes": strings.Join(tapeLines, ","),
 		"aggFields": aggFields,
 		"badConditions": badConditions,
 		"badVolumeConditions": badVolumeConditions,
