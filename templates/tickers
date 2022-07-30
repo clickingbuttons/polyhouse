@@ -13,10 +13,15 @@ CREATE TABLE {{ .database }}.{{ .table }} (
   ticker_root                    LowCardinality(String),
   homepage_url                   LowCardinality(String),
   total_employees                Nullable(UInt32),
-  list_date                      Nullable(Date),
+  list_date                      Nullable(Int64), -- TODO: make Date32 after https://github.com/ClickHouse/ClickHouse/pull/39425
   share_class_shares_outstanding Nullable(Float64),
-  weighted_shares_outstanding    Nullable(Float64)
--- TODO: address, branding
+  weighted_shares_outstanding    Nullable(Float64),
+  address1                       LowCardinality(String),
+  address2                       LowCardinality(String),
+  city                           LowCardinality(String),
+  postal_code                    LowCardinality(String),
+  state                          LowCardinality(String)
+-- TODO: branding as LowCardinality(Array(UInt8))
 )
 Engine = MergeTree
 PARTITION BY toYear(ts)

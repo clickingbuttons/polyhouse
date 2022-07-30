@@ -1,21 +1,21 @@
 package main
 
 import (
-	"os"
-	"github.com/clickingbuttons/polyhouse/cmd/schema"
 	"github.com/clickingbuttons/polyhouse/cmd/ingest"
+	"github.com/clickingbuttons/polyhouse/cmd/schema"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.com/sirupsen/logrus"
+	"os"
 )
 
 type RootCmd struct {
 	logger *logrus.Entry
-	viper *viper.Viper
+	viper  *viper.Viper
 }
 
 func main() {
-	cmd := RootCmd {
+	cmd := RootCmd{
 		logger: logrus.NewEntry(logrus.StandardLogger()),
 		viper:  viper.New(),
 	}
@@ -31,10 +31,10 @@ func main() {
 	}
 
 	rootCmd := &cobra.Command{
-		Use: "polyhouse",
-		Short: "polyhouse creates schema for Polygon data and optionally ingests from public APIs",
+		Use:               "polyhouse",
+		Short:             "polyhouse creates schema for Polygon data and optionally ingests from public APIs",
 		PersistentPreRunE: cmd.persistentPreRun,
-		RunE: cmd.runE,
+		RunE:              cmd.runE,
 	}
 	rootCmd.PersistentFlags().String("templates", "./templates/*", "glob for schema templates")
 	rootCmd.PersistentFlags().String("database", "us_equities", "name of database")
@@ -82,4 +82,3 @@ func (e *RootCmd) persistentPreRun(cmd *cobra.Command, args []string) error {
 	logrus.SetOutput(cmd.ErrOrStderr())
 	return nil
 }
-

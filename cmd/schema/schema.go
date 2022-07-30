@@ -4,24 +4,24 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"golang.org/x/exp/slices"
 	"strings"
 	"text/template"
-	"golang.org/x/exp/slices"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	"github.com/clickingbuttons/polyhouse/lib"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
+	"github.com/clickingbuttons/polyhouse/lib"
 )
 
 type SchemaCmd struct {
-	logger *logrus.Entry
-	viper *viper.Viper
+	logger    *logrus.Entry
+	viper     *viper.Viper
 	templates *template.Template
-	fields map[string]interface{}
-	db driver.Conn
+	fields    map[string]interface{}
+	db        driver.Conn
 }
 
 func NewSchema(logger *logrus.Entry) (*cobra.Command, error) {
@@ -32,9 +32,10 @@ func NewSchema(logger *logrus.Entry) (*cobra.Command, error) {
 
 	cmd := &cobra.Command{
 		Use:               "schema",
+		Aliases:           []string{"schemas"},
 		Short:             "Creates Clickhouse schemas for Polygon data",
 		PersistentPreRunE: schema.persistentPreRun,
-		RunE: schema.runE,
+		RunE:              schema.runE,
 	}
 
 	cmd.Flags().StringArray("tables", []string{
@@ -72,11 +73,11 @@ const (
 	// from looking at TAQ + UTP + CTA
 	// page 17 https://www.nyse.com/publicdocs/nyse/data/Daily_TAQ_Client_Spec_v3.0.pdf
 	// page 16 https://utpplan.com/doc/utpbinaryoutputspec.pdf
-	badConditions = "[10, 15, 16, 17, 18, 19, 21, 22, 23, 24, 29, 30, 33, 38, 40, 46, 52, 53]"
+	badConditions       = "[10, 15, 16, 17, 18, 19, 21, 22, 23, 24, 29, 30, 33, 38, 40, 46, 52, 53]"
 	badVolumeConditions = "[]"
 	// page 43 https://utpplan.com/DOC/UtpBinaryOutputSpec.pdf
 	// page 64 https://www.ctaplan.com/publicdocs/ctaplan/CTS_Pillar_Output_Specification.pdf
-	consBadConditions = "[2, 7, 21, 37, 15, 20, 16, 29, 52, 53]"
+	consBadConditions       = "[2, 7, 21, 37, 15, 20, 16, 29, 52, 53]"
 	consBadVolumeConditions = "[15, 16, 38]"
 )
 
@@ -137,14 +138,14 @@ func (e *SchemaCmd) runE(cmd *cobra.Command, args []string) error {
 		participantsLines = append(participantsLines, line)
 	}
 	e.fields = map[string]interface{}{
-		"database": e.viper.GetString("database"),
-		"cluster": e.viper.GetString("cluster"),
-		"participants": strings.Join(participantsLines, ","),
-		"tapes": strings.Join(tapeLines, ","),
-		"aggFields": aggFields,
-		"badConditions": badConditions,
-		"badVolumeConditions": badVolumeConditions,
-		"consBadConditions": consBadConditions,
+		"database":                e.viper.GetString("database"),
+		"cluster":                 e.viper.GetString("cluster"),
+		"participants":            strings.Join(participantsLines, ","),
+		"tapes":                   strings.Join(tapeLines, ","),
+		"aggFields":               aggFields,
+		"badConditions":           badConditions,
+		"badVolumeConditions":     badVolumeConditions,
+		"consBadConditions":       consBadConditions,
 		"consBadVolumeConditions": consBadVolumeConditions,
 	}
 	e.logger.Info(e.viper.GetStringSlice("tables"))
