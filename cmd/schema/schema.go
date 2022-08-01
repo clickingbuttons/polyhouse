@@ -79,6 +79,7 @@ const (
 	// page 64 https://www.ctaplan.com/publicdocs/ctaplan/CTS_Pillar_Output_Specification.pdf
 	consBadConditions       = "[2, 7, 21, 37, 15, 20, 16, 29, 52, 53]"
 	consBadVolumeConditions = "[15, 16, 38]"
+	consMaybeLastConditions = "[30, 16, 22, 33, 13, 10]"
 )
 
 func (e *SchemaCmd) createTable(table string) error {
@@ -147,31 +148,18 @@ func (e *SchemaCmd) runE(cmd *cobra.Command, args []string) error {
 		"badVolumeConditions":     badVolumeConditions,
 		"consBadConditions":       consBadConditions,
 		"consBadVolumeConditions": consBadVolumeConditions,
+		"consMaybeLastConditions": consMaybeLastConditions,
 	}
-	e.logger.Info(e.viper.GetStringSlice("tables"))
+	tables := e.viper.GetStringSlice("tables")
 
 	if err = e.createTable("database"); err != nil {
 		return err
 	}
 
-	if err = e.maybeCreateTable("tickers"); err != nil {
-		return err
-	}
-
-	if err = e.maybeCreateTable("trades"); err != nil {
-		return err
-	}
-
-	if err = e.maybeCreateTable("agg1m"); err != nil {
-		return err
-	}
-
-	if err = e.maybeCreateTable("agg1d"); err != nil {
-		return err
-	}
-
-	if err = e.maybeCreateTable("agg1d_intra"); err != nil {
-		return err
+	for _, t := range tables {
+		if err = e.maybeCreateTable(t); err != nil {
+			return err
+		}
 	}
 
 	return nil

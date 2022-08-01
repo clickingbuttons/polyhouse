@@ -12,15 +12,14 @@ AS
 SELECT
   ticker,
   toDate32(toStartOfDay(ts)) AS ts,
-  any(price) AS open,
-  max(price) AS high,
-  min(price) AS low,
-  anyLast(price) AS close,
-  sumIf(size, update_volume) AS volume,
-  sumIf(price * size, update_volume) / volume AS vwap,
-  count() AS count
-FROM {{ .database }}.trades
-WHERE correction = 0 AND NOT hasAny(conditions, [12]) AND update
+  any(a.open) AS open,
+  max(a.high) AS high,
+  min(a.low) AS low,
+  anyLast(a.close) AS close,
+  sum(a.volume) AS volume,
+  sum(a.vwap * a.volume) / sum(a.volume) AS vwap,
+  sum(a.count) AS count
+FROM {{ .database }}.cons_agg1m AS a
 GROUP BY
   ticker,
   ts;

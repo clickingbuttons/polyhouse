@@ -20,7 +20,7 @@ SELECT
   sumIf(price * size, update_volume) / volume AS vwap,
   count() AS count
 FROM {{ .database }}.trades
-WHERE correction = 0 AND not hasAny(conditions, [12]) AND update
+WHERE correction = 0 AND update
 GROUP BY
   ticker,
   ts;

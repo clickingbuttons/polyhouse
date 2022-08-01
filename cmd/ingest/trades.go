@@ -86,7 +86,7 @@ func (e *IngestCmd) download_and_flush_trades(ticker string, date time.Time) {
 		if err != nil {
 			panic(err)
 		}
-		atomic.AddUint64(&tickerCount, 1)
+		atomic.AddUint64(&tradeCount, 1)
 	}
 	if trades.Err() != nil {
 		panic(trades.Err())

@@ -12,10 +12,10 @@ AS
 SELECT
   ticker,
   toDate32(toStartOfDay(ts)) AS ts,
-  any(price) AS open,
+  if((anyIf(price, NOT hasAny(conditions, {{ .consMaybeLastConditions }})) as o)=0, any(price), o) AS open,
   max(price) AS high,
   min(price) AS low,
-  anyLast(price) AS close,
+  if((anyLastIf(price, NOT hasAny(conditions, {{ .consMaybeLastConditions }})) as c)=0, anyLast(price), c) AS close,
   sumIf(size, update_volume) AS volume,
   sumIf(price * size, update_volume) / volume AS vwap,
   count() AS count
