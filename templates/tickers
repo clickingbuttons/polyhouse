@@ -23,7 +23,7 @@ CREATE TABLE {{ .database }}.{{ .table }} (
   state                          LowCardinality(String)
 -- TODO: branding as LowCardinality(Array(UInt8))
 )
-Engine = MergeTree
+Engine = ReplacingMergeTree()
 PARTITION BY toYear(ts)
 ORDER BY (ticker, ts);
 
