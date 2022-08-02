@@ -17,6 +17,6 @@ CREATE TABLE {{ .database }}.{{ .table }} (
   cons_update        Bool materialized not(hasAny(conditions, {{ .consBadConditions }})),
   cons_update_volume Bool materialized not(hasAny(conditions, {{ .consBadVolumeConditions }})),
 )
-Engine = MergeTree
+Engine = ReplacingMergeTree
 partition by toYYYYMMDD(ts)
-order by (ticker, ts);
+order by (ticker, ts, tape, seqnum, id);

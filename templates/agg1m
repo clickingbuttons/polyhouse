@@ -2,7 +2,7 @@ CREATE TABLE {{ .database }}.{{ .table }} (
   ts     DateTime('America/New_York'),
   {{ .aggFields }}
 )
-ENGINE = CollapsingMergeTree
+ENGINE = ReplacingMergeTree()
 PARTITION BY toYYYYMMDD(ts)
 ORDER BY (ticker, ts);
 

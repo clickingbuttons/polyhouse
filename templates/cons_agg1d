@@ -2,7 +2,7 @@ CREATE TABLE {{ .database }}.{{ .table }} (
   ts     Date32,
   {{ .aggFields }}
 )
-ENGINE = CollapsingMergeTree
+ENGINE = ReplacingMergeTree()
 PARTITION BY toYear(ts)
 ORDER BY (ticker, ts);
 
