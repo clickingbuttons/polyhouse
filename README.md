@@ -1,26 +1,28 @@
 # polyhouse
+```sh
+polyhouse creates schema for Polygon data and optionally ingests from public APIs
 
-Pretty rough state, but with this schema it downloads trades:
-```sql
-create database if not exists us_equities;
-create table us_equities.trades (
-		sequence_number  UInt64,
-		tape             UInt8,
-		id               UInt64,
-		ticker           LowCardinality(String),
-		time             Datetime64(9, 'America/New_York'),
-		time_participant Nullable(Datetime64(9, 'America/New_York')),
-		time_trf         Nullable(Datetime64(9, 'America/New_York')),
-		price            Float64,
-		size             UInt32,
-		conditions       Array(UInt8),
-		correction       UInt8,
-		exchange         UInt8,
-		trf              UInt8,
-		update_intraday  Bool materialized updateIntraday(price, size, conditions, correction),
-		update_day       Bool materialized updateDay(price, size, conditions, correction)
-	)
-	Engine = MergeTree
-	partition by toYYYYMMDD(time)
-	order by (ticker, time);
+Usage:
+  polyhouse [flags]
+  polyhouse [command]
+
+Available Commands:
+  completion  Generate the autocompletion script for the specified shell
+  help        Help about any command
+  ingest      Ingests data from Polygon.io into Clickhouse
+  schema      Creates Clickhouse schemas for Polygon data
+
+Flags:
+      --address string       clickhouse address (default "127.0.0.1:9000")
+      --cluster string       clickhouse cluster to make tables on
+      --database string      name of database (default "us_equities")
+  -h, --help                 help for polyhouse
+      --max-idle-conns int   clickhouse max open connections (default 5)
+      --max-open-conns int   clickhouse max open connections (default 90)
+      --password string      for clickhouse auth
+      --templates string     glob for schema templates (default "./templates/*")
+      --username string      for clickhouse auth (default "default")
+      --verbose              log moar
+
+Use "polyhouse [command] --help" for more information about a command.
 ```
