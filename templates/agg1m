@@ -2,7 +2,7 @@ CREATE TABLE {{ .database }}.{{ .table }} (
   ts     DateTime('America/New_York'),
   {{ .aggFields }}
 )
-ENGINE = AggregatingMergeTree
+ENGINE = CollapsingMergeTree
 PARTITION BY toYYYYMMDD(ts)
 ORDER BY (ticker, ts);
 
@@ -10,8 +10,8 @@ CREATE MATERIALIZED VIEW {{ .database }}.{{ .table }}_agger
 TO {{ .database }}.{{ .table }}
 AS
 SELECT
-  ticker,
   toStartOfMinute(ts) AS ts,
+  ticker,
   any(price) AS open,
   max(price) AS high,
   min(price) AS low,

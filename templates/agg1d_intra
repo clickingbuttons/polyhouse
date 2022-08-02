@@ -2,7 +2,7 @@ CREATE TABLE {{ .database }}.{{ .table }} (
   ts     Date32,
   {{ .aggFields }}
 )
-ENGINE = AggregatingMergeTree
+ENGINE = CollapsingMergeTree
 PARTITION BY toYear(ts)
 ORDER BY (ticker, ts);
 
@@ -10,8 +10,8 @@ CREATE MATERIALIZED VIEW {{ .database }}.{{ .table }}_agger
 TO {{ .database }}.{{ .table }}
 AS
 SELECT
-  ticker,
   toDate32(toStartOfDay(ts)) AS ts,
+  ticker,
   any(a.open) AS open,
   max(a.high) AS high,
   min(a.low) AS low,
