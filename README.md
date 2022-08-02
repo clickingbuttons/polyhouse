@@ -1,4 +1,7 @@
 # polyhouse
+
+Currently supports stocks ticker details and trades with materialized views for aggregates.
+
 ```sh
 polyhouse creates schema for Polygon data and optionally ingests from public APIs
 
