@@ -1,4 +1,5 @@
-CREATE TABLE {{ .database }}.{{ .table }} (
+CREATE TABLE {{ .database }}.{{ .table }}{{ if .cluster }}_shard ON CLUSTER {{ .cluster }}{{ end }}
+(
   seqnum             UInt64,
   tape               Enum8({{ .tapes }}),
   id                 UInt64,
@@ -17,7 +18,26 @@ CREATE TABLE {{ .database }}.{{ .table }} (
   cons_update        Bool materialized not(hasAny(conditions, {{ .consBadConditions }})),
   cons_update_volume Bool materialized not(hasAny(conditions, {{ .consBadVolumeConditions }})),
 )
-Engine = ReplacingMergeTree
+Engine = 
+{{ if .cluster }}
+ReplicatedReplacingMergeTree(
+	'/clickhouse/tables/{shard}/{database}/{{ .table }}',
+	'{replica}'
+)
+{{ else }}
+ReplacingMergeTree()
+{{ end }}
 PARTITION BY toYYYYMMDD(ts)
 PRIMARY KEY (ticker, ts)
 ORDER BY (ticker, ts, seqnum);
+
+{{ if .cluster }}
+CREATE TABLE {{ .database }}.{{ .table }} ON CLUSTER {{ .cluster }}
+AS {{ .database }}.{{ .table }}_shard
+ENGINE = Distributed(
+	'{cluster}',
+	{{ .database }},
+	{{ .table }}_shard,
+	cityHash64(ticker)
+);
+{{ end }}

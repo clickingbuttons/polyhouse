@@ -1,1 +1,4 @@
-CREATE DATABASE IF NOT EXISTS {{ .database }};
+CREATE DATABASE IF NOT EXISTS {{ .database }}
+{{ if .cluster }}
+ ON CLUSTER {{ .cluster }}
+{{ end }};

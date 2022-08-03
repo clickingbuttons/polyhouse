@@ -1,10 +1,29 @@
-CREATE TABLE {{ .database }}.{{ .table }} (
+CREATE TABLE {{ .database }}.{{ .table }}{{ if .cluster }}_shard ON CLUSTER {{ .cluster }}{{ end }}
+(
   ts     Date32,
   {{ .aggFields }}
 )
-ENGINE = ReplacingMergeTree()
+ENGINE = {{ if .cluster }}
+ReplicatedReplacingMergeTree(
+	'/clickhouse/tables/{shard}/{database}/{{ .table }}',
+	'{replica}'
+)
+{{ else }}
+ReplacingMergeTree()
+{{ end }}
 PARTITION BY toYear(ts)
 ORDER BY (ticker, ts);
+
+{{ if .cluster }}
+CREATE TABLE {{ .database }}.{{ .table }} ON CLUSTER {{ .cluster }}
+AS {{ .database }}.{{ .table }}_shard
+ENGINE = Distributed(
+	'{cluster}',
+	{{ .database }},
+	{{ .table }}_shard,
+	cityHash64(ticker)
+);
+{{ end }}
 
 CREATE MATERIALIZED VIEW {{ .database }}.{{ .table }}_agger
 TO {{ .database }}.{{ .table }}

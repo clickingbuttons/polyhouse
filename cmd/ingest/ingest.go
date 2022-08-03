@@ -83,6 +83,7 @@ func (e *IngestCmd) init() (from, to time.Time, err error) {
 	for scanner.Scan() {
 		e.blacklistTickers = append(e.blacklistTickers, scanner.Text())
 	}
+	e.logger.Info("read ", len(e.blacklistTickers), " tickers from blacklist file")
 
 	// invert maps for clickhouse-go :(
 	e.tapes = map[int]string{}
@@ -107,6 +108,9 @@ func (e *IngestCmd) runE(cmd *cobra.Command, args []string) error {
 	tables := e.viper.GetStringSlice("tables")
 
 	from, to, err := e.init()
+	if err != nil {
+		return err
+	}
 
 	for d := to; d.Before(from) == false; d = d.AddDate(0, 0, -1) {
 		tickerCount = 0

@@ -13,7 +13,7 @@ import (
 
 var tickerCount uint64
 
-func (e *IngestCmd) download_and_flush_tickers(ticker string, date time.Time) {
+func (e *IngestCmd) download_and_flush_tickers(ticker string, date time.Time, results chan models.Ticker) {
 	params := models.GetTickerDetailsParams{
 		Ticker: ticker,
 	}.WithDate(models.Date(date))
@@ -29,58 +29,13 @@ func (e *IngestCmd) download_and_flush_tickers(ticker string, date time.Time) {
 			panic(err)
 		}
 	}
-	sql := fmt.Sprintf("INSERT INTO %s.tickers", e.viper.GetString("database"))
-	batch, err := e.db.PrepareBatch(e.ctx, sql)
-	if err != nil {
-		panic(err)
-	}
-	res := details.Results
-	var sicCode *uint16
-	if res.SICCode != "" {
-		code, err := strconv.ParseUint(res.SICCode, 10, 16)
-		if err != nil {
-			panic(err)
-		}
-		code2 := uint16(code)
-		sicCode = &code2
-	}
-	err = batch.Append(
-		date,
-		ticker,
-		res.Name,
-		res.PrimaryExchange,
-		res.Type,
-		res.CIK,
-		res.CompositeFIGI,
-		res.ShareClassFIGI,
-		res.PhoneNumber,
-		res.Description,
-		sicCode,
-		res.TickerRoot,
-		res.HomepageURL,
-		uint32(res.TotalEmployees),
-		parse_time_unix(time.Time(res.ListDate)),
-		float64(res.ShareClassSharesOutstanding),
-		float64(res.WeightedSharesOutstanding),
-		res.Address.Address1,
-		res.Address.Address2,
-		res.Address.City,
-		res.Address.PostalCode,
-		res.Address.State,
-	)
-	if err != nil {
-		panic(err)
-	}
+	results <- details.Results
 	atomic.AddUint64(&tickerCount, 1)
-	err = batch.Send()
-	if err != nil {
-		panic(err)
-	}
 }
 
-func (e *IngestCmd) worker_tickers(c chan string, wg *sync.WaitGroup, date time.Time) {
+func (e *IngestCmd) worker_tickers(c chan string, wg *sync.WaitGroup, date time.Time, results chan models.Ticker) {
 	for ticker := range c {
-		e.download_and_flush_tickers(ticker, date)
+		e.download_and_flush_tickers(ticker, date, results)
 	}
 	wg.Done()
 }
@@ -104,8 +59,67 @@ func (e *IngestCmd) get_existing_tickers(date time.Time) ([]string, error) {
 	return res, nil
 }
 
+func (e *IngestCmd) flush(tickers chan models.Ticker, date time.Time) error {
+	sql := fmt.Sprintf("INSERT INTO %s.tickers", e.viper.GetString("database"))
+	batch, err := e.db.PrepareBatch(e.ctx, sql)
+	if err != nil {
+		panic(err)
+	}
+
+	for res := range tickers {
+		if res.Ticker == "" {
+			// was missing details for this day
+			continue
+		}
+		var sicCode *uint16
+		if res.SICCode != "" {
+			code, err := strconv.ParseUint(res.SICCode, 10, 16)
+			if err != nil {
+				panic(err)
+			}
+			code2 := uint16(code)
+			sicCode = &code2
+		}
+		err = batch.Append(
+			date,
+			res.Ticker,
+			res.Name,
+			res.PrimaryExchange,
+			res.Type,
+			res.CIK,
+			res.CompositeFIGI,
+			res.ShareClassFIGI,
+			res.PhoneNumber,
+			res.Description,
+			sicCode,
+			res.TickerRoot,
+			res.HomepageURL,
+			uint32(res.TotalEmployees),
+			parse_time_unix(time.Time(res.ListDate)),
+			float64(res.ShareClassSharesOutstanding),
+			float64(res.WeightedSharesOutstanding),
+			res.Address.Address1,
+			res.Address.Address2,
+			res.Address.City,
+			res.Address.PostalCode,
+			res.Address.State,
+		)
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	err = batch.Send()
+	if err != nil {
+		panic(err)
+	}
+
+	return nil
+}
+
 func (e *IngestCmd) download_day_tickers(date time.Time, tickers []string) error {
 	toDownload := []string{}
+	e.logger.Info(date.Format(dateFormat), " getting already downloaded tickers")
 	alreadyDownloaded, err := e.get_existing_tickers(date)
 	if err != nil {
 		return err
@@ -116,19 +130,25 @@ func (e *IngestCmd) download_day_tickers(date time.Time, tickers []string) error
 		}
 	}
 
-	ticker_chan := make(chan string)
+	e.logger.Info(date.Format(dateFormat), " downloading ", len(tickers), " tickers")
+	inputs := make(chan string)
+	outputs := make(chan models.Ticker, len(toDownload))
 	wg := &sync.WaitGroup{}
 
 	for i := 0; i < e.viper.GetInt("max-open-conns"); i++ {
 		wg.Add(1)
-		go e.worker_tickers(ticker_chan, wg, date)
+		go e.worker_tickers(inputs, wg, date, outputs)
 	}
 
 	for _, ticker := range toDownload {
-		ticker_chan <- ticker
+		inputs <- ticker
 	}
-	close(ticker_chan)
+	close(inputs)
 	wg.Wait()
+
+	close(outputs)
+	e.logger.Info(date.Format(dateFormat), " done downloading")
+	e.flush(outputs, date)
 
 	return nil
 }

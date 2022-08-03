@@ -1,4 +1,5 @@
-CREATE TABLE {{ .database }}.{{ .table }} (
+CREATE TABLE {{ .database }}.{{ .table }}{{ if .cluster }}_shard ON CLUSTER {{ .cluster }}{{ end }}
+(
   ts                             Date32,
   ticker                         LowCardinality(String),
   name                           LowCardinality(String),
@@ -23,7 +24,25 @@ CREATE TABLE {{ .database }}.{{ .table }} (
   state                          LowCardinality(String)
 -- TODO: branding as LowCardinality(Array(UInt8))
 )
-Engine = ReplacingMergeTree()
+Engine =
+{{ if .cluster }}
+ReplicatedReplacingMergeTree(
+	'/clickhouse/tables/{shard}/{database}/{{ .table }}',
+	'{replica}'
+)
+{{ else }}
+ReplacingMergeTree()
+{{ end }}
 PARTITION BY toYear(ts)
 ORDER BY (ticker, ts);
 
+{{ if .cluster }}
+CREATE TABLE {{ .database }}.{{ .table }} ON CLUSTER {{ .cluster }}
+AS {{ .database }}.{{ .table }}_shard
+ENGINE = Distributed(
+	'{cluster}',
+	{{ .database }},
+	{{ .table }}_shard,
+	cityHash64(ticker)
+);
+{{ end }}
