@@ -108,8 +108,8 @@ func (e *SchemaCmd) createTable(table string) error {
 	return nil
 }
 
-func (e *SchemaCmd) maybeCreateTable(table string) error {
-	if slices.Contains(e.viper.GetStringSlice("tables"), table) {
+func (e *SchemaCmd) maybeCreateTable(table string, tables []string) error {
+	if slices.Contains(tables, table) {
 		e.fields["table"] = table
 		return e.createTable(table)
 	}
@@ -150,14 +150,14 @@ func (e *SchemaCmd) runE(cmd *cobra.Command, args []string) error {
 		"consBadVolumeConditions": consBadVolumeConditions,
 		"consMaybeLastConditions": consMaybeLastConditions,
 	}
-	tables := e.viper.GetStringSlice("tables")
+	tables := e.viper.GetStringSlice("table")
 
 	if err = e.createTable("database"); err != nil {
 		return err
 	}
 
 	for _, t := range tables {
-		if err = e.maybeCreateTable(t); err != nil {
+		if err = e.maybeCreateTable(t, tables); err != nil {
 			return err
 		}
 	}
