@@ -38,7 +38,7 @@ func NewSchema(logger *logrus.Entry) (*cobra.Command, error) {
 		RunE:              schema.runE,
 	}
 
-	cmd.Flags().StringArrayP("tables", "t", []string{
+	cmd.Flags().StringArrayP("table", "t", []string{
 		"tickers",
 		"trades",
 		"agg1m", "agg1d", "agg1d_intra",
