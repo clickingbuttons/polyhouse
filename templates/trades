@@ -20,12 +20,12 @@ CREATE TABLE {{ .database }}.{{ .table }}{{ if .cluster }}_shard ON CLUSTER {{ .
 )
 Engine = 
 {{ if .cluster }}
-ReplicatedReplacingMergeTree(
+ReplicatedMergeTree(
 	'/clickhouse/tables/{shard}/{database}/{{ .table }}',
 	'{replica}'
 )
 {{ else }}
-ReplacingMergeTree()
+MergeTree()
 {{ end }}
 PARTITION BY toYYYYMMDD(ts)
 PRIMARY KEY (ticker, ts)
