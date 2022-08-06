@@ -1,4 +1,5 @@
-CREATE TABLE {{ .database }}.{{ .table }}{{ if .cluster }}_shard ON CLUSTER {{ .cluster }}{{ end }}
+CREATE TABLE IF NOT EXISTS
+{{ .database }}.{{ .table }}{{ if .cluster }}_shard ON CLUSTER {{ .cluster }}{{ end }}
 (
   ts     DateTime('America/New_York'),
   {{ .aggFields }}
@@ -16,7 +17,8 @@ PARTITION BY toYYYYMMDD(ts)
 ORDER BY (ticker, ts);
 
 {{ if .cluster }}
-CREATE TABLE {{ .database }}.{{ .table }} ON CLUSTER {{ .cluster }}
+CREATE TABLE IF NOT EXISTS
+{{ .database }}.{{ .table }} ON CLUSTER {{ .cluster }}
 AS {{ .database }}.{{ .table }}_shard
 ENGINE = Distributed(
 	'{cluster}',
@@ -26,7 +28,8 @@ ENGINE = Distributed(
 );
 {{ end }}
 
-CREATE MATERIALIZED VIEW {{ .database }}.{{ .table }}_agger
+CREATE MATERIALIZED VIEW IF NOT EXISTS
+{{ .database }}.{{ .table }}_agger
 TO {{ .database }}.{{ .table }}
 AS
 SELECT

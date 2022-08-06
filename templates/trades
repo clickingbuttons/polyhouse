@@ -1,4 +1,5 @@
-CREATE TABLE {{ .database }}.{{ .table }}{{ if .cluster }}_shard ON CLUSTER {{ .cluster }}{{ end }}
+CREATE TABLE IF NOT EXISTS
+{{ .database }}.{{ .table }}{{ if .cluster }}_shard ON CLUSTER {{ .cluster }}{{ end }}
 (
   seqnum             UInt64,
   tape               Enum8({{ .tapes }}),
@@ -32,7 +33,8 @@ PRIMARY KEY (ticker, ts)
 ORDER BY (ticker, ts, seqnum);
 
 {{ if .cluster }}
-CREATE TABLE {{ .database }}.{{ .table }} ON CLUSTER {{ .cluster }}
+CREATE TABLE IF NOT EXISTS
+{{ .database }}.{{ .table }} ON CLUSTER {{ .cluster }}
 AS {{ .database }}.{{ .table }}_shard
 ENGINE = Distributed(
 	'{cluster}',
