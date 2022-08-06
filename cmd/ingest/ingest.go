@@ -47,7 +47,7 @@ func NewIngest(logger *logrus.Entry) (*cobra.Command, error) {
 	cmd.Flags().String("from", "2004-01-02", "ingest from this date")
 	cmd.Flags().String("to", time.Now().AddDate(0, 0, -3).Format(dateFormat), "ingest to this date")
 	cmd.Flags().String("blacklist-file", "./test_tickers.txt", "newline separated list of tickers to ignore")
-	cmd.Flags().StringArray("tables", []string{"tickers", "trades"}, "tables to ingest data into")
+	cmd.Flags().StringArrayP("tables", "t", []string{"tickers", "trades"}, "tables to ingest data into")
 
 	return cmd, nil
 }
