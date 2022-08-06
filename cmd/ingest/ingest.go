@@ -45,7 +45,7 @@ func NewIngest(logger *logrus.Entry) (*cobra.Command, error) {
 		RunE:              schema.runE,
 	}
 	cmd.Flags().String("from", "2004-01-02", "ingest from this date")
-	cmd.Flags().String("to", time.Now().AddDate(0, 0, -2).Format(dateFormat), "ingest to this date")
+	cmd.Flags().String("to", time.Now().AddDate(0, 0, -3).Format(dateFormat), "ingest to this date")
 	cmd.Flags().String("blacklist-file", "./test_tickers.txt", "newline separated list of tickers to ignore")
 	cmd.Flags().StringArray("tables", []string{"tickers", "trades"}, "tables to ingest data into")
 
@@ -98,6 +98,29 @@ func (e *IngestCmd) init() (from, to time.Time, err error) {
 	return from, to, err
 }
 
+func (e *IngestCmd) getTickers(d time.Time) ([]string, error) {
+	params := models.GetGroupedDailyAggsParams{
+		Locale:     models.MarketLocale("us"),
+		MarketType: models.MarketType("stocks"),
+		Date:       models.Date(d),
+	}.WithAdjusted(false)
+	tickers, err := e.polygon.AggsClient.GetGroupedDailyAggs(e.ctx, params)
+	if err != nil {
+		return []string{}, err
+	}
+	if tickers.ResultsCount == 0 {
+		return []string{}, nil
+	}
+	tickerList := []string{}
+	for _, t := range tickers.Results {
+		if !slices.Contains(e.blacklistTickers, t.Ticker) {
+			tickerList = append(tickerList, t.Ticker)
+		}
+	}
+
+	return tickerList, nil
+}
+
 func (e *IngestCmd) runE(cmd *cobra.Command, args []string) error {
 	var err error
 	e.db, err = lib.MakeClickhouseClient(e.viper)
@@ -117,33 +140,20 @@ func (e *IngestCmd) runE(cmd *cobra.Command, args []string) error {
 		tradeCount = 0
 		begin := time.Now()
 
-		params := models.GetGroupedDailyAggsParams{
-			Locale:     models.MarketLocale("us"),
-			MarketType: models.MarketType("stocks"),
-			Date:       models.Date(d),
-		}.WithAdjusted(false)
-		tickers, err := e.polygon.AggsClient.GetGroupedDailyAggs(e.ctx, params)
-		if err != nil {
-			return err
-		}
-		if tickers.ResultsCount == 0 {
+		tickers, err := e.getTickers(d)
+		if len(tickers) == 0 {
 			e.logger.Info(d.Format("2006-01-02"), " no data")
 			continue
 		}
-		tickerList := []string{}
-		for _, t := range tickers.Results {
-			if !slices.Contains(e.blacklistTickers, t.Ticker) {
-				tickerList = append(tickerList, t.Ticker)
-			}
-		}
+		e.logger.Infof("ingesting %d tickers for %s", len(tickers), d.Format(dateFormat))
 
 		if slices.Contains(tables, "tickers") {
-			if err = e.download_day_tickers(time.Time(d), tickerList); err != nil {
+			if err = e.download_day_tickers(time.Time(d), tickers); err != nil {
 				return err
 			}
 		}
 		if slices.Contains(tables, "trades") {
-			if err = e.download_day_trades(time.Time(d), tickerList); err != nil {
+			if err = e.download_day_trades(time.Time(d), tickers); err != nil {
 				return err
 			}
 		}
