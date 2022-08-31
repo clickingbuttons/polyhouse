@@ -135,7 +135,7 @@ func (e *IngestCmd) runE(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	for d := to; d.Before(from) == false; d = d.AddDate(0, 0, -1) {
+	for d := to; d.After(from); d = d.AddDate(0, 0, -1) {
 		tickerCount = 0
 		tradeCount = 0
 		begin := time.Now()
