@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/polygon-io/client-go/rest/models"
+	"github.com/vbauerster/mpb/v8"
+	"github.com/vbauerster/mpb/v8/decor"
 )
 
 var tradeCount uint64
@@ -79,7 +81,7 @@ func (e *IngestCmd) download_trades(ticker string, date time.Time, trades_chan c
 	}
 }
 
-func (e *IngestCmd) flush_trades(trades_chan chan Trade) error {
+func (e *IngestCmd) flush_trades(trades_chan chan Trade) {
 	sql := fmt.Sprintf("INSERT INTO %s.trades", e.viper.GetString("database"))
 	batch, err := e.db.PrepareBatch(e.ctx, sql)
 	if err != nil {
@@ -88,11 +90,11 @@ func (e *IngestCmd) flush_trades(trades_chan chan Trade) error {
 	for t := range trades_chan {
 		exchange, ok := e.participants[t.Exchange]
 		if !ok {
-			return fmt.Errorf("unknown exchange %d for %s", t.Exchange, t.Ticker)
+			panic(fmt.Errorf("unknown exchange %d for %s", t.Exchange, t.Ticker))
 		}
 		trf, ok := e.participants[t.TrfID]
 		if !ok {
-			return fmt.Errorf("unknown trfID %d for %s", t.TrfID, t.Ticker)
+			panic(fmt.Errorf("unknown trfID %d for %s", t.TrfID, t.Ticker))
 		}
 		err := batch.Append(
 			uint64(t.SequenceNumber),
@@ -110,37 +112,60 @@ func (e *IngestCmd) flush_trades(trades_chan chan Trade) error {
 			trf,
 		)
 		if err != nil {
-			return err
+			panic(err)
 		}
 	}
 	err = batch.Send()
 	if err != nil {
 		panic(err)
 	}
-	return nil
 }
 
 func (e *IngestCmd) download_day_trades(date time.Time, tickers []string) error {
 	ticker_chan := make(chan string)
-	trades_chan := make(chan Trade, 200_000_000)
+	trades_chan := make(chan Trade)
 	wg := &sync.WaitGroup{}
 
-	for i := 0; i < e.viper.GetInt("max-open-conns"); i++ {
+	p := mpb.New()
+	bar := p.New(
+		int64(len(tickers)),
+		mpb.BarStyle(),
+		mpb.PrependDecorators(
+			decor.Name(date.Format(dateFormat)),
+			decor.Name(" "),
+			decor.CurrentNoUnit("%d"),
+			decor.Name("/"),
+			decor.TotalNoUnit("%d"),
+		),
+		mpb.AppendDecorators(
+			decor.AverageETA(decor.ET_STYLE_MMSS),
+		),
+	)
+	for i := 0; i < 200; i++ {
 		wg.Add(1)
 		go func() {
 			for ticker := range ticker_chan {
 				e.download_trades(ticker, date, trades_chan)
+				bar.Increment()
 			}
 			wg.Done()
 		}()
 	}
+	go func() {
+		e.flush_trades(trades_chan)
+		wg.Done()
+	}()
 
 	for _, ticker := range tickers {
 		ticker_chan <- ticker
 	}
 	close(ticker_chan)
+	p.Wait()
 	wg.Wait()
 
+	wg.Add(1)
 	close(trades_chan)
-	return e.flush_trades(trades_chan)
+	wg.Wait()
+
+	return nil
 }
