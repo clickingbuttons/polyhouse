@@ -2,6 +2,7 @@ package ingest
 
 import (
 	"bufio"
+	"fmt"
 	"context"
 	"golang.org/x/exp/slices"
 	"os"
@@ -45,7 +46,7 @@ func NewIngest(logger *logrus.Entry) (*cobra.Command, error) {
 		RunE:              schema.runE,
 	}
 	cmd.Flags().String("from", "2004-01-02", "ingest from this date")
-	cmd.Flags().String("to", time.Now().AddDate(0, 0, -3).Format(dateFormat), "ingest to this date")
+	cmd.Flags().String("to", time.Now().AddDate(0, 0, -4).Format(dateFormat), "ingest to this date")
 	cmd.Flags().String("blacklist-file", "./test_tickers.txt", "newline separated list of tickers to ignore")
 	cmd.Flags().StringArrayP("tables", "t", []string{"tickers", "trades"}, "tables to ingest data into")
 
@@ -121,13 +122,23 @@ func (e *IngestCmd) getTickers(d time.Time) ([]string, error) {
 	return tickerList, nil
 }
 
+const apiKeyEnv1 = "POLY_API_KEY" 
+const apiKeyEnv2 = "POLYGON_API_KEY" 
+
 func (e *IngestCmd) runE(cmd *cobra.Command, args []string) error {
 	var err error
 	e.db, err = lib.MakeClickhouseClient(e.viper)
 	if err != nil {
 		return err
 	}
-	e.polygon = polygon.New(os.Getenv("POLY_API_KEY"))
+	apiKey := os.Getenv(apiKeyEnv1)
+	if apiKey == "" {
+		apiKey = os.Getenv(apiKeyEnv2)
+	}
+	if apiKey == "" {
+		return fmt.Errorf("must set %s or %s", apiKeyEnv1, apiKeyEnv2)
+	}
+	e.polygon = polygon.New(apiKey)
 	tables := e.viper.GetStringSlice("tables")
 
 	from, to, err := e.init()
