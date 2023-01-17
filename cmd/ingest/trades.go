@@ -87,7 +87,7 @@ func (e *IngestCmd) flush_trades(trades_chan chan Trade) {
 	if err != nil {
 		panic(err)
 	}
-	batch_size := 0
+	rowCount := 0
 	for t := range trades_chan {
 		exchange, ok := e.participants[t.Exchange]
 		if !ok {
@@ -115,8 +115,8 @@ func (e *IngestCmd) flush_trades(trades_chan chan Trade) {
 		if err != nil {
 			panic(err)
 		}
-		batch_size += 1
-		if batch_size > 50_000 {
+		rowCount += 1
+		if rowCount > 1_000_000 {
 			err = batch.Send()
 			if err != nil {
 				panic(err)
@@ -125,7 +125,7 @@ func (e *IngestCmd) flush_trades(trades_chan chan Trade) {
 			if err != nil {
 				panic(err)
 			}
-			batch_size = 0
+			rowCount = 0
 		}
 	}
 	err = batch.Send()
@@ -136,7 +136,7 @@ func (e *IngestCmd) flush_trades(trades_chan chan Trade) {
 
 func (e *IngestCmd) download_day_trades(date time.Time, tickers []string) error {
 	ticker_chan := make(chan string)
-	trades_chan := make(chan Trade, 100_000)
+	trades_chan := make(chan Trade)
 	wg := &sync.WaitGroup{}
 
 	p := mpb.New()

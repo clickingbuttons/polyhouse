@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS
   ticker_root                    LowCardinality(String),
   homepage_url                   LowCardinality(String),
   total_employees                Nullable(UInt32),
-  list_date                      Nullable(Int64), -- TODO: make Date32 after https://github.com/ClickHouse/ClickHouse/pull/39425
+  list_date                      Nullable(Date32),
   share_class_shares_outstanding Nullable(Float64),
   weighted_shares_outstanding    Nullable(Float64),
   address1                       LowCardinality(String),

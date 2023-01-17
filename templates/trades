@@ -13,11 +13,7 @@ CREATE TABLE IF NOT EXISTS
   conditions         Array(UInt8),
   correction         UInt8,
   exchange           Enum8({{ .participants }}),
-  trf                Enum8({{ .participants }}),
-  update             Bool materialized not(hasAny(conditions, {{ .badConditions }})),
-  update_volume      Bool materialized not(hasAny(conditions, {{ .badVolumeConditions }})),
-  cons_update        Bool materialized not(hasAny(conditions, {{ .consBadConditions }})),
-  cons_update_volume Bool materialized not(hasAny(conditions, {{ .consBadVolumeConditions }})),
+  trf                Enum8({{ .participants }})
 )
 Engine = 
 {{ if .cluster }}
