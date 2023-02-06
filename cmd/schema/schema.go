@@ -41,8 +41,8 @@ func NewSchema(logger *logrus.Entry) (*cobra.Command, error) {
 	cmd.Flags().StringArrayP("table", "t", []string{
 		"tickers",
 		"trades",
-		"agg1m", "agg1d", "agg1d_intra",
-		"cons_agg1m", "cons_agg1d", "cons_agg1d_intra",
+		"agg1d",
+		"agg1m",
 	}, "tables to create")
 
 	return cmd, nil
@@ -70,16 +70,16 @@ count  UInt32
 `
 
 const (
-	// from looking at TAQ + UTP + CTA
+	// condition explanations
+	// https://polygon.io/glossary/us/stocks/conditions-indicators
 	// page 17 https://www.nyse.com/publicdocs/nyse/data/Daily_TAQ_Client_Spec_v3.0.pdf
 	// page 16 https://utpplan.com/doc/utpbinaryoutputspec.pdf
-	badConditions       = "[10, 15, 16, 17, 18, 19, 21, 22, 23, 24, 29, 30, 33, 38, 40, 46, 52, 53]"
-	badVolumeConditions = "[]"
+
+	// condition rules (also compared to Yahoo, Tradingview, Schwab, IBKR, Polygon)
 	// page 43 https://utpplan.com/DOC/UtpBinaryOutputSpec.pdf
 	// page 64 https://www.ctaplan.com/publicdocs/ctaplan/CTS_Pillar_Output_Specification.pdf
-	consBadConditions       = "[2, 7, 21, 37, 15, 20, 16, 29, 52, 53]"
-	consBadVolumeConditions = "[15, 16, 38]"
-	consMaybeLastConditions = "[30, 16, 22, 33, 13, 10]"
+	badPriceConditions = "[2, 7, 21, 37, 15, 20, 16, 29, 52, 53]"
+	badVolumeConditions = "[15, 16, 38]"
 )
 
 func (e *SchemaCmd) createTable(table string) error {
@@ -144,11 +144,8 @@ func (e *SchemaCmd) runE(cmd *cobra.Command, args []string) error {
 		"participants":            strings.Join(participantsLines, ","),
 		"tapes":                   strings.Join(tapeLines, ","),
 		"aggFields":               aggFields,
-		"badConditions":           badConditions,
+		"badPriceConditions":      badPriceConditions,
 		"badVolumeConditions":     badVolumeConditions,
-		"consBadConditions":       consBadConditions,
-		"consBadVolumeConditions": consBadVolumeConditions,
-		"consMaybeLastConditions": consMaybeLastConditions,
 	}
 	tables := e.viper.GetStringSlice("table")
 

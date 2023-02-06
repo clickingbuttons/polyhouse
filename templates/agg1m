@@ -6,14 +6,14 @@ CREATE TABLE IF NOT EXISTS
 )
 ENGINE = 
 {{ if .cluster }}
-ReplicatedReplacingMergeTree(
+ReplicatedMergeTree(
 	'/clickhouse/tables/{shard}/{database}/{{ .table }}',
 	'{replica}'
 )
 {{ else }}
-ReplacingMergeTree()
+MergeTree()
 {{ end }}
-PARTITION BY toYYYYMMDD(ts)
+PARTITION BY toYYYYMM(ts)
 ORDER BY (ticker, ts);
 
 {{ if .cluster }}
@@ -32,18 +32,21 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS
 {{ .database }}.{{ .table }}_agger
 TO {{ .database }}.{{ .table }}
 AS
+WITH
+	NOT hasAny(conditions, {{ .badPriceConditions }}) AS update_price,
+	NOT hasAny(conditions, {{ .badVolumeConditions }}) AS update_volume
 SELECT
   toStartOfMinute(ts) AS ts,
   ticker,
-  any(price) AS open,
-  max(price) AS high,
-  min(price) AS low,
-  anyLast(price) AS close,
-  sumIf(size, update_volume) AS volume,
-  sumIf(price * size, update_volume) / volume AS vwap,
-  count() AS count
+	anyIf(price, update_price) AS open,
+	maxIf(price, update_price) AS high,
+	minIf(price, update_price) AS low,
+	anyLastIf(price, update_price) AS close,
+	sumIf(size, update_volume) AS volume,
+	sumIf(price * size, update_volume) / volume AS vwap,
+	count() AS count
 FROM {{ .database }}.trades
-WHERE correction = 0 AND update
+WHERE correction = 0
 GROUP BY
   ticker,
   ts;

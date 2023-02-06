@@ -4,14 +4,13 @@ CREATE TABLE IF NOT EXISTS
   ts     Date32,
   {{ .aggFields }}
 )
-ENGINE =
-{{ if .cluster }}
-ReplicatedReplacingMergeTree(
+ENGINE = {{ if .cluster }}
+ReplicatedMergeTree(
 	'/clickhouse/tables/{shard}/{database}/{{ .table }}',
 	'{replica}'
 )
 {{ else }}
-ReplacingMergeTree()
+MergeTree()
 {{ end }}
 PARTITION BY toYear(ts)
 ORDER BY (ticker, ts);
@@ -32,18 +31,21 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS
 {{ .database }}.{{ .table }}_agger
 TO {{ .database }}.{{ .table }}
 AS
+WITH
+	NOT hasAny(conditions, {{ .badPriceConditions }}) AND NOT hasAny(conditions, [12]) AS update_price,
+	NOT hasAny(conditions, {{ .badVolumeConditions }}) AS update_volume
 SELECT
-  toDate32(toStartOfDay(ts)) AS ts,
-  ticker,
-  any(price) AS open,
-  max(price) AS high,
-  min(price) AS low,
-  anyLast(price) AS close,
-  sumIf(size, update_volume) AS volume,
-  sumIf(price * size, update_volume) / volume AS vwap,
-  count() AS count
+	toDate32(toStartOfDay(ts)) AS ts,
+	ticker,
+	anyIf(price, update_price) AS open,
+	maxIf(price, update_price) AS high,
+	minIf(price, update_price) AS low,
+	anyLastIf(price, update_price) AS close,
+	sumIf(size, update_volume) AS volume,
+	sumIf(price * size, update_volume) / volume AS vwap,
+	count() AS count
 FROM {{ .database }}.trades
-WHERE correction = 0 AND NOT hasAny(conditions, [12]) AND update
+WHERE correction = 0
 GROUP BY
-  ticker,
-  ts;
+	ts,
+	ticker;
