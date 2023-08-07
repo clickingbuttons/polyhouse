@@ -78,8 +78,7 @@ const (
 	// condition rules (also compared to Yahoo, Tradingview, Schwab, IBKR, Polygon)
 	// page 43 https://utpplan.com/DOC/UtpBinaryOutputSpec.pdf
 	// page 64 https://www.ctaplan.com/publicdocs/ctaplan/CTS_Pillar_Output_Specification.pdf
-	badPriceConditions = "[2, 7, 21, 37, 15, 20, 16, 29, 52, 53]"
-	badVolumeConditions = "[15, 16, 38]"
+	badConditions = "[2, 7, 21, 37, 15, 20, 16, 29, 52, 53, 38]"
 )
 
 func (e *SchemaCmd) createTable(table string) error {
@@ -139,12 +138,11 @@ func (e *SchemaCmd) runE(cmd *cobra.Command, args []string) error {
 		participantsLines = append(participantsLines, line)
 	}
 	e.fields = map[string]interface{}{
-		"database":                e.viper.GetString("database"),
-		"participants":            strings.Join(participantsLines, ","),
-		"tapes":                   strings.Join(tapeLines, ","),
-		"aggFields":               aggFields,
-		"badPriceConditions":      badPriceConditions,
-		"badVolumeConditions":     badVolumeConditions,
+		"database":      e.viper.GetString("database"),
+		"participants":  strings.Join(participantsLines, ","),
+		"tapes":         strings.Join(tapeLines, ","),
+		"aggFields":     aggFields,
+		"badConditions": badConditions,
 	}
 	tables := e.viper.GetStringSlice("table")
 

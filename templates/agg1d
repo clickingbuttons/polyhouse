@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS {{ .database }}.{{ .table }} (
-  ts     Date32,
-  {{ .aggFields }}
+	ts		DateTime,
+	{{ .aggFields }}
 )
 ENGINE = MergeTree()
 PARTITION BY toYear(ts)
@@ -10,21 +10,17 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS
 {{ .database }}.{{ .table }}_agger
 TO {{ .database }}.{{ .table }}
 AS
-WITH
-	NOT hasAny(conditions, {{ .badPriceConditions }}) AND NOT hasAny(conditions, [12]) AS update_price,
-	NOT hasAny(conditions, {{ .badVolumeConditions }}) AS update_volume
 SELECT
-	toDate32(toStartOfDay(ts)) AS ts,
+	toDateTime(toStartOfDay(ts)) AS ts,
 	ticker,
-	anyIf(price, update_price) AS open,
-	maxIf(price, update_price) AS high,
-	minIf(price, update_price) AS low,
-	anyLastIf(price, update_price) AS close,
-	sumIf(size, update_volume) AS volume,
-	sumIf(price * size, update_volume) / volume AS vwap,
-	count() AS count
-FROM {{ .database }}.trades
-WHERE correction = 0
+	any(open) AS open,
+	max(high) AS high,
+	min(low) AS low,
+	anyLast(close) AS close,
+	sum(volume) AS volume,
+	sum(vwap * agg1h.volume) / volume AS vwap,
+	sum(count) AS count
+FROM {{ .database }}.agg1h as agg1h
 GROUP BY
 	ts,
 	ticker;

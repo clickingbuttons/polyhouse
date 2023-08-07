@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS {{ .database }}.{{ .table }} (
-  ts     DateTime,
-  {{ .aggFields }}
+	ts		DateTime,
+	{{ .aggFields }}
 )
 ENGINE = MergeTree()
 PARTITION BY toYear(ts)
@@ -17,10 +17,10 @@ SELECT
 	max(high) AS high,
 	min(low) AS low,
 	anyLast(close) AS close,
-	sum(agg1d.volume) AS volume,
-	sum(agg1d.vwap * agg1d.volume) / sum(agg1d.volume) AS vwap,
-	sum(agg1d.count) AS count
-FROM {{ .database }}.agg1d
+	sum(volume) AS volume,
+	sum(vwap * agg1d.volume) / volume AS vwap,
+	sum(count) AS count
+FROM {{ .database }}.agg1d as agg1d
 GROUP BY
 	ts,
 	ticker;

@@ -11,16 +11,16 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS
 TO {{ .database }}.{{ .table }}
 AS
 SELECT
-	toDateTime(toStartOfWeek(ts)) AS ts,
+	toDateTime(toStartOfYear(ts)) AS ts,
 	ticker,
 	any(open) AS open,
 	max(high) AS high,
 	min(low) AS low,
 	anyLast(close) AS close,
 	sum(volume) AS volume,
-	sum(vwap * agg1d.volume) / volume AS vwap,
+	sum(vwap * agg1mo.volume) / volume AS vwap,
 	sum(count) AS count
-FROM {{ .database }}.agg1d as agg1d
+FROM {{ .database }}.agg1mo as agg1mo
 GROUP BY
 	ts,
 	ticker;
