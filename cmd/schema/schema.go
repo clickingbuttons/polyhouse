@@ -140,7 +140,6 @@ func (e *SchemaCmd) runE(cmd *cobra.Command, args []string) error {
 	}
 	e.fields = map[string]interface{}{
 		"database":                e.viper.GetString("database"),
-		"cluster":                 e.viper.GetString("cluster"),
 		"participants":            strings.Join(participantsLines, ","),
 		"tapes":                   strings.Join(tapeLines, ","),
 		"aggFields":               aggFields,

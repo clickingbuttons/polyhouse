@@ -1,6 +1,4 @@
-CREATE TABLE IF NOT EXISTS
-{{ .database }}.{{ .table }}{{ if .cluster }}_shard ON CLUSTER {{ .cluster }}{{ end }}
-(
+CREATE TABLE IF NOT EXISTS {{ .database }}.{{ .table }} (
   ts                             Date32,
   ticker                         LowCardinality(String),
   name                           LowCardinality(String),
@@ -25,26 +23,6 @@ CREATE TABLE IF NOT EXISTS
   state                          LowCardinality(String)
 -- TODO: branding as LowCardinality(Array(UInt8))
 )
-Engine =
-{{ if .cluster }}
-ReplicatedReplacingMergeTree(
-	'/clickhouse/tables/{shard}/{database}/{{ .table }}',
-	'{replica}'
-)
-{{ else }}
-ReplacingMergeTree()
-{{ end }}
+Engine = MergeTree()
 PARTITION BY toYear(ts)
 ORDER BY (ticker, ts);
-
-{{ if .cluster }}
-CREATE TABLE IF NOT EXISTS
-{{ .database }}.{{ .table }} ON CLUSTER {{ .cluster }}
-AS {{ .database }}.{{ .table }}_shard
-ENGINE = Distributed(
-	'{cluster}',
-	{{ .database }},
-	{{ .table }}_shard,
-	cityHash64(ticker)
-);
-{{ end }}

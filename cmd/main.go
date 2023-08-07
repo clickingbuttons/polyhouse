@@ -44,7 +44,6 @@ func main() {
 	rootCmd.PersistentFlags().Int("max-open-conns", 90, "clickhouse max open connections")
 	rootCmd.PersistentFlags().Int("max-idle-conns", 5, "clickhouse max open connections")
 	rootCmd.PersistentFlags().Bool("verbose", false, "log moar")
-	rootCmd.PersistentFlags().String("cluster", "", "clickhouse cluster to make tables on")
 	rootCmd.AddCommand(schemaCmd)
 	rootCmd.AddCommand(ingestCmd)
 

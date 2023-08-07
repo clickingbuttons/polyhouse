@@ -17,7 +17,6 @@ Available Commands:
 
 Flags:
       --address string       clickhouse address (default "127.0.0.1:9000")
-      --cluster string       clickhouse cluster to make tables on
       --database string      name of database (default "us_equities")
   -h, --help                 help for polyhouse
       --max-idle-conns int   clickhouse max open connections (default 5)

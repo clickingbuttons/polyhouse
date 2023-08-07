@@ -1,6 +1,4 @@
-CREATE TABLE IF NOT EXISTS
-{{ .database }}.{{ .table }}{{ if .cluster }}_shard ON CLUSTER {{ .cluster }}{{ end }}
-(
+CREATE TABLE IF NOT EXISTS {{ .database }}.{{ .table }} (
   seqnum             UInt64,
   tape               Enum8({{ .tapes }}),
   id                 UInt64,
@@ -15,27 +13,7 @@ CREATE TABLE IF NOT EXISTS
   exchange           Enum8({{ .participants }}),
   trf                Enum8({{ .participants }})
 )
-Engine = 
-{{ if .cluster }}
-ReplicatedMergeTree(
-	'/clickhouse/tables/{shard}/{database}/{{ .table }}',
-	'{replica}'
-)
-{{ else }}
-MergeTree()
-{{ end }}
+Engine = MergeTree()
 PARTITION BY toYYYYMMDD(ts)
 PRIMARY KEY (ticker, ts)
 ORDER BY (ticker, ts, seqnum);
-
-{{ if .cluster }}
-CREATE TABLE IF NOT EXISTS
-{{ .database }}.{{ .table }} ON CLUSTER {{ .cluster }}
-AS {{ .database }}.{{ .table }}_shard
-ENGINE = Distributed(
-	'{cluster}',
-	{{ .database }},
-	{{ .table }}_shard,
-	cityHash64(ticker)
-);
-{{ end }}

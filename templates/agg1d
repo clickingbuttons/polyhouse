@@ -1,31 +1,10 @@
-CREATE TABLE IF NOT EXISTS
-{{ .database }}.{{ .table }}{{ if .cluster }}_shard ON CLUSTER {{ .cluster }}{{ end }}
-(
+CREATE TABLE IF NOT EXISTS {{ .database }}.{{ .table }} (
   ts     Date32,
   {{ .aggFields }}
 )
-ENGINE = {{ if .cluster }}
-ReplicatedMergeTree(
-	'/clickhouse/tables/{shard}/{database}/{{ .table }}',
-	'{replica}'
-)
-{{ else }}
-MergeTree()
-{{ end }}
+ENGINE = MergeTree()
 PARTITION BY toYear(ts)
 ORDER BY (ticker, ts);
-
-{{ if .cluster }}
-CREATE TABLE IF NOT EXISTS
-{{ .database }}.{{ .table }} ON CLUSTER {{ .cluster }}
-AS {{ .database }}.{{ .table }}_shard
-ENGINE = Distributed(
-	'{cluster}',
-	{{ .database }},
-	{{ .table }}_shard,
-	cityHash64(ticker)
-);
-{{ end }}
 
 CREATE MATERIALIZED VIEW IF NOT EXISTS
 {{ .database }}.{{ .table }}_agger

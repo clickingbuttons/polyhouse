@@ -1,0 +1,26 @@
+CREATE TABLE IF NOT EXISTS {{ .database }}.{{ .table }} (
+  ts     DateTime,
+  {{ .aggFields }}
+)
+ENGINE = MergeTree()
+PARTITION BY toYear(ts)
+ORDER BY (ticker, ts);
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS
+{{ .database }}.{{ .table }}_agger
+TO {{ .database }}.{{ .table }}
+AS
+SELECT
+	toDateTime(toStartOfMonth(ts)) AS ts,
+	ticker,
+	any(open) AS open,
+	max(high) AS high,
+	min(low) AS low,
+	anyLast(close) AS close,
+	sum(agg1d.volume) AS volume,
+	sum(agg1d.vwap * agg1d.volume) / sum(agg1d.volume) AS vwap,
+	sum(agg1d.count) AS count
+FROM {{ .database }}.agg1d
+GROUP BY
+	ts,
+	ticker;
