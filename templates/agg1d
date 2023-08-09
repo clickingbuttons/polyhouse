@@ -1,26 +1,44 @@
-CREATE TABLE IF NOT EXISTS {{ .database }}.{{ .table }} (
-	ts		DateTime,
-	{{ .aggFields }}
+CREATE TABLE IF NOT EXISTS {{ .database }}.{{ .table }}_data (
+ts			Date,
+{{ .aggAggFields }}
 )
-ENGINE = MergeTree()
+ENGINE = AggregatingMergeTree()
 PARTITION BY toYear(ts)
 ORDER BY (ticker, ts);
 
 CREATE MATERIALIZED VIEW IF NOT EXISTS
 {{ .database }}.{{ .table }}_agger
-TO {{ .database }}.{{ .table }}
+TO {{ .database }}.{{ .table }}_data
 AS
 SELECT
-	toDateTime(toStartOfDay(ts)) AS ts,
+	toStartOfDay(toDate(ts)) as ts,
 	ticker,
-	any(open) AS open,
-	max(high) AS high,
-	min(low) AS low,
-	anyLast(close) AS close,
-	sum(volume) AS volume,
-	sum(vwap * agg1h.volume) / volume AS vwap,
-	sum(count) AS count
-FROM {{ .database }}.agg1h as agg1h
+	argMinMergeState(open) AS open,
+	maxMergeState(high) AS high,
+	minMergeState(low) AS low,
+	argMaxMergeState(close) AS close,
+	sumMergeState(volume) as volume,
+	sumMergeState(liquidity) as liquidity,
+	countMergeState(count) as count
+FROM {{ .database }}.agg1h_data
 GROUP BY
+	ticker,
+	ts;
+
+CREATE VIEW IF NOT EXISTS {{ .database }}.{{ .table }}
+AS
+SELECT
 	ts,
-	ticker;
+	ticker,
+	argMinMerge(open) AS open,
+	maxMerge(high) AS high,
+	minMerge(low) AS low,
+	argMaxMerge(close) AS close,
+	sumMerge(volume) as volume,
+	sumMerge(liquidity) as liquidity,
+	liquidity / volume as vwap,
+	countMerge(count) as count
+FROM {{ .database }}.{{ .table }}_data
+GROUP BY
+	ticker,
+	ts;

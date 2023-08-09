@@ -58,16 +58,26 @@ func (e *SchemaCmd) persistentPreRun(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-const aggFields = `
-ticker LowCardinality(String),
-open   Float64,
-high   Float64,
-low    Float64,
-close  Float64,
-volume UInt64,
-vwap   Float64,
-count  UInt32
-`
+const tradeAggFields =
+`ticker		LowCardinality(String),
+open			AggregateFunction(argMin, Float64, DateTime64(9, 'America/New_York')),
+high			AggregateFunction(max, Float64),
+low				AggregateFunction(min, Float64),
+close			AggregateFunction(argMax, Float64, DateTime64(9, 'America/New_York')),
+volume		AggregateFunction(sum, UInt64),
+liquidity	AggregateFunction(sum, Float64),
+count			AggregateFunction(count, UInt32)`
+
+// Can save 8 bytes per row by using DateTime instead of DateTime64 (~33% after compression)
+const aggAggFields =
+`ticker		LowCardinality(String),
+open			AggregateFunction(argMin, Float64, DateTime('America/New_York')),
+high			AggregateFunction(max, Float64),
+low				AggregateFunction(min, Float64),
+close			AggregateFunction(argMax, Float64, DateTime('America/New_York')),
+volume		AggregateFunction(sum, UInt64),
+liquidity	AggregateFunction(sum, Float64),
+count			AggregateFunction(count, UInt32)`
 
 const (
 	// condition explanations
@@ -75,10 +85,25 @@ const (
 	// page 17 https://www.nyse.com/publicdocs/nyse/data/Daily_TAQ_Client_Spec_v3.0.pdf
 	// page 16 https://utpplan.com/doc/utpbinaryoutputspec.pdf
 
-	// condition rules (also compared to Yahoo, Tradingview, Schwab, IBKR, Polygon)
+	// upstream condition rules
 	// page 43 https://utpplan.com/DOC/UtpBinaryOutputSpec.pdf
 	// page 64 https://www.ctaplan.com/publicdocs/ctaplan/CTS_Pillar_Output_Specification.pdf
-	badConditions = "[2, 7, 21, 37, 15, 20, 16, 29, 52, 53, 38]"
+
+	// Reduce noise by filtering some trades.
+	// - Filter trades executed at times other than their timestamp.
+	// - Filter trades that a retail investor could not make.
+
+	// 4, 5 - Bunched trade
+	// Bunched trades are reported AFTER the entire trade is completed. Furthermore, they disappear
+	// around 2007.
+	// 13 - Sold out of sequence (reported time different from transaction time)
+	// 15, 16 - Market center official open/close (not a real trade...)
+	// 22 - Prior reference price (>90s)
+	// 29 - Seller's option (can deliver between 2-60 days)
+	// 30 - Sold last (late but in sequence)
+	// 32, 33 - Sold (out of sequence, late)
+	// 38 - Corrected consolidated close (not a real trade...)
+	badConditions = "[4, 5, 13, 15, 16, 22, 29, 30, 32, 33, 38]"
 )
 
 func (e *SchemaCmd) createTable(table string) error {
@@ -138,10 +163,11 @@ func (e *SchemaCmd) runE(cmd *cobra.Command, args []string) error {
 		participantsLines = append(participantsLines, line)
 	}
 	e.fields = map[string]interface{}{
-		"database":      e.viper.GetString("database"),
-		"participants":  strings.Join(participantsLines, ","),
-		"tapes":         strings.Join(tapeLines, ","),
-		"aggFields":     aggFields,
+		"database":				e.viper.GetString("database"),
+		"participants":		strings.Join(participantsLines, ","),
+		"tapes":					strings.Join(tapeLines, ","),
+		"tradeAggFields":	tradeAggFields,
+		"aggAggFields":   aggAggFields,
 		"badConditions": badConditions,
 	}
 	tables := e.viper.GetStringSlice("table")
