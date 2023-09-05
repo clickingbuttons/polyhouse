@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS {{ .database }}.{{ .table }}_data (
 ts			DateTime('America/New_York'),
-{{ .tradeAggFields }}
+{{ .aggAggFields }}
 )
 ENGINE = AggregatingMergeTree()
 PARTITION BY toYYYYMM(ts)
@@ -11,17 +11,16 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS
 TO {{ .database }}.{{ .table }}_data
 AS
 SELECT
-	toStartOfMinute(ts) AS ts,
+	toStartOfInterval(ts, INTERVAL 4 hour) as ts,
 	ticker,
-	argMinState(price, trades.ts) AS open,
-	maxState(price) AS high,
-	minState(price) AS low,
-	argMaxState(price, trades.ts) AS close,
-	sumState(toUInt64(size)) AS volume,
-	sumState(price * size) AS liquidity,
-	countState() AS count
-FROM {{ .database }}.trades
-WHERE correction=0 AND price!=0 AND NOT hasAny(conditions, {{ .badConditions }})
+	argMinState(finalizeAggregation(open), agg1h_data.ts) AS open,
+	maxMergeState(high) AS high,
+	minMergeState(low) AS low,
+	argMaxState(finalizeAggregation(close), agg1h_data.ts) AS close,
+	sumMergeState(volume) as volume,
+	sumMergeState(liquidity) as liquidity,
+	countMergeState(count) as count
+FROM {{ .database }}.agg1h_data
 GROUP BY
 	ticker,
 	ts;

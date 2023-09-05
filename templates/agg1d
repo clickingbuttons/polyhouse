@@ -20,7 +20,7 @@ SELECT
 	sumMergeState(volume) as volume,
 	sumMergeState(liquidity) as liquidity,
 	countMergeState(count) as count
-FROM {{ .database }}.agg1h_data
+FROM {{ .database }}.agg4h_data
 GROUP BY
 	ticker,
 	ts;

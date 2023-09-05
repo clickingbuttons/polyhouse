@@ -1,14 +1,13 @@
 #!/bin/bash
 
 database="us_equities"
-d=$(clickhouse-client -q "select toDate(min(ts)) from $database.trades")
-d2=$(clickhouse-client -q "select toDate(max(ts)) from $database.trades")
+d=$(clickhouse-client -q "select toDate(min(min_time)) from system.parts where database='$database' and table='trades'")
+d2=$(clickhouse-client -q "select toDate(max(max_time)) from system.parts where database='$database' and table='trades'")
 while [ "$d" != "$d2" ]; do
-  echo $d
-  next=$(date -I -d "$d + 1 day")
+	echo $d
+	next=$(date -I -d "$d + 1 day")
 
-	clickhouse-client --query "
-insert into agg1m_data SELECT
+	query="insert into agg1m_data SELECT
 	toStartOfMinute(ts) AS ts,
 	ticker,
 	argMinState(price, trades.ts) AS open,
@@ -27,5 +26,11 @@ WHERE
 GROUP BY
 	ticker,
 	ts;"
-	d=$next
+
+	if clickhouse-client --query "$query"; then
+		d=$next
+	else
+		echo 'query failed, sleeping 10s'
+		sleep 10
+	fi
 done
